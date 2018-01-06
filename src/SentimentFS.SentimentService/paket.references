@@ -5,3 +5,4 @@ Akkling
 FsPickler
 SentimentFS.NaiveBayes
 SentimentFS.Stemmer
+Newtonsoft.Json

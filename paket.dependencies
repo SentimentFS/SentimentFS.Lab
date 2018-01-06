@@ -11,3 +11,4 @@ nuget Akkling
 nuget FsPickler 3.4.0
 nuget SentimentFS.NaiveBayes
 nuget SentimentFS.Stemmer
+nuget Newtonsoft.Json
