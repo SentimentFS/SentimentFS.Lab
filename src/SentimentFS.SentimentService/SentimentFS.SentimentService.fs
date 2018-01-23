@@ -27,7 +27,8 @@ module Messages =
 module Program =
     open Messages
     open Akka.Actor
-    
+    open Akkling.Streams
+
     let private intToEmotion (value: int): Emotion =
         match value with
         | -5 | -4 -> Emotion.VeryNegative
@@ -56,6 +57,13 @@ module Program =
 
         for keyValue in emotions do
             actor <! (Train(({ text = keyValue.Key; category = keyValue.Value |> intToEmotion; weight = 1 } , apiUrl)))
+
+    let traingDataSource trainingDataUrl = 
+        Source.ofAsync(async {
+                let! result = httpClient.GetAsync(System.Uri(trainingDataUrl)) |> Async.AwaitTask
+                result.EnsureSuccessStatusCode() |> ignore
+                let! json = result.Content.ReadAsStringAsync() |> Async.AwaitTask 
+                return json |> JsonConvert.DeserializeObject<IDictionary<string, int>> })
 
     [<EntryPoint>]
     let main argv =
