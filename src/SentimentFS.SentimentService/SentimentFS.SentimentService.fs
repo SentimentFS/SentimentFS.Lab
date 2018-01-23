@@ -6,6 +6,8 @@ open System.Net.Http
 open Newtonsoft.Json
 open System.Collections.Generic
 open System.Text
+open System.Linq
+open Akka.Streams.Dsl
 
 module Messages =
     open SentimentFS.NaiveBayes.Dto
@@ -40,24 +42,6 @@ module Program =
 
     let httpClient = HttpClient();
 
-    let actor _ = function
-        | Train (req, url) ->
-            use content = new StringContent((req |> JsonConvert.SerializeObject), UTF8Encoding.UTF8, "application/json")
-            async {
-                return! httpClient.PutAsync(url, content) |> Async.AwaitTask
-            } |> Async.RunSynchronously |> ignored
-
-    let initClassifier apiUrl tainingDataUrl (actor: IActorRef<SentimentServiceMessages>) =
-        let httpResult = async {
-                let! result = httpClient.GetAsync(System.Uri(tainingDataUrl)) |> Async.AwaitTask
-                result.EnsureSuccessStatusCode() |> ignore
-                return! result.Content.ReadAsStringAsync() |> Async.AwaitTask } |> Async.RunSynchronously
-
-        let emotions = httpResult |> JsonConvert.DeserializeObject<IDictionary<string, int>>
-
-        for keyValue in emotions do
-            actor <! (Train(({ text = keyValue.Key; category = keyValue.Value |> intToEmotion; weight = 1 } , apiUrl)))
-
     let traingDataSource trainingDataUrl = 
         Source.ofAsync(async {
                 let! result = httpClient.GetAsync(System.Uri(trainingDataUrl)) |> Async.AwaitTask
@@ -65,10 +49,26 @@ module Program =
                 let! json = result.Content.ReadAsStringAsync() |> Async.AwaitTask 
                 return json |> JsonConvert.DeserializeObject<IDictionary<string, int>> })
 
+    let mapRequestFlow(apiUrl: string) = 
+        Flow.id
+        |> Flow.collect(fun (dict: IDictionary<string, int>) -> dict.ToList())
+        |> Flow.asyncMap(10)(fun x -> 
+                                use content = new StringContent(({ text = x.Key; category = x.Value |> intToEmotion; weight = 1 } |> JsonConvert.SerializeObject), UTF8Encoding.UTF8, "application/json")
+                                async {
+                                    return! httpClient.PutAsync(apiUrl, content) |> Async.AwaitTask
+                                }
+                            )
+    
+
     [<EntryPoint>]
     let main argv =
         let system = System.create "sentimentfs" <| Configuration.load()
-        let actor = spawn system "sentiment" <| props (actorOf2 (actor))
-        initClassifier "http://localhost:5000/api/sentiment/trainer" "https://raw.githubusercontent.com/wooorm/afinn-96/master/index.json" actor
+        let s = traingDataSource("https://raw.githubusercontent.com/wooorm/afinn-96/master/index.json") 
+                |> Source.via(mapRequestFlow("http://localhost:5000/api/sentiment/trainer"))
+
+        async {
+           do! s |>Source.runWith (system.Materializer()) (Sink.ignore)
+        } |> Async.RunSynchronously
+              
         Console.ReadKey();
         0 // return an integer exit code
