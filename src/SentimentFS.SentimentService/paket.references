@@ -2,6 +2,7 @@ FSharp.Core
 Akka
 Akka.Remote
 Akkling
+Akkling.Streams
 FsPickler
 SentimentFS.NaiveBayes
 SentimentFS.Stemmer

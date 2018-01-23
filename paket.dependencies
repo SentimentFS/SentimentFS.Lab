@@ -8,6 +8,7 @@ nuget FSharp.Core
 nuget Akka
 nuget Akka.Remote
 nuget Akkling
+nuget Akkling.Streams
 nuget FsPickler 3.4.0
 nuget SentimentFS.NaiveBayes
 nuget SentimentFS.Stemmer
