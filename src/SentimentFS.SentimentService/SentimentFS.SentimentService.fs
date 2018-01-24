@@ -52,9 +52,9 @@ module Program =
     let mapRequestFlow(apiUrl: string) = 
         Flow.id
         |> Flow.collect(fun (dict: IDictionary<string, int>) -> dict.ToList())
-        |> Flow.asyncMap(10)(fun x -> 
-                                use content = new StringContent(({ text = x.Key; category = x.Value |> intToEmotion; weight = 1 } |> JsonConvert.SerializeObject), UTF8Encoding.UTF8, "application/json")
+        |> Flow.asyncMap(10)(fun x ->                                
                                 async {
+                                    use content = new StringContent(({ text = x.Key; category = x.Value |> intToEmotion; weight = 1 } |> JsonConvert.SerializeObject), UTF8Encoding.UTF8, "application/json")
                                     return! httpClient.PutAsync(apiUrl, content) |> Async.AwaitTask
                                 }
                             )
@@ -68,7 +68,5 @@ module Program =
 
         async {
            do! s |>Source.runWith (system.Materializer()) (Sink.ignore)
-        } |> Async.RunSynchronously
-              
-        Console.ReadKey();
+        } |> Async.RunSynchronously           
         0 // return an integer exit code
